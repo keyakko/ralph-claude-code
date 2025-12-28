@@ -5,6 +5,12 @@
 # Response Analysis Functions
 # Based on expert recommendations from Martin Fowler, Michael Nygard, Sam Newman
 
+# Source OS compatibility layer if not already sourced
+if [[ -z "$RALPH_OS" ]]; then
+    SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+    source "$SCRIPT_DIR/os_compat.sh"
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -147,7 +153,7 @@ analyze_response() {
     cat > "$analysis_result_file" << EOF
 {
     "loop_number": $loop_number,
-    "timestamp": "$(date -Iseconds)",
+    "timestamp": "$(get_iso_date)",
     "output_file": "$output_file",
     "analysis": {
         "has_completion_signal": $has_completion_signal,

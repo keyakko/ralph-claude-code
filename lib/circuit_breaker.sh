@@ -3,6 +3,12 @@
 # Prevents runaway token consumption by detecting stagnation
 # Based on Michael Nygard's "Release It!" pattern
 
+# Source OS compatibility layer if not already sourced
+if [[ -z "$RALPH_OS" ]]; then
+    SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+    source "$SCRIPT_DIR/os_compat.sh"
+fi
+
 # Circuit Breaker States
 CB_STATE_CLOSED="CLOSED"        # Normal operation, progress detected
 CB_STATE_HALF_OPEN="HALF_OPEN"  # Monitoring mode, checking for recovery
@@ -36,7 +42,7 @@ init_circuit_breaker() {
         cat > "$CB_STATE_FILE" << EOF
 {
     "state": "$CB_STATE_CLOSED",
-    "last_change": "$(date -Iseconds)",
+    "last_change": "$(get_iso_date)",
     "consecutive_no_progress": 0,
     "consecutive_same_error": 0,
     "last_progress_loop": 0,
@@ -164,7 +170,7 @@ record_loop_result() {
     cat > "$CB_STATE_FILE" << EOF
 {
     "state": "$new_state",
-    "last_change": "$(date -Iseconds)",
+    "last_change": "$(get_iso_date)",
     "consecutive_no_progress": $consecutive_no_progress,
     "consecutive_same_error": $consecutive_same_error,
     "last_progress_loop": $last_progress_loop,
@@ -196,7 +202,7 @@ log_circuit_transition() {
 
     local history=$(cat "$CB_HISTORY_FILE")
     local transition="{
-        \"timestamp\": \"$(date -Iseconds)\",
+        \"timestamp\": \"$(get_iso_date)\",
         \"loop\": $loop_number,
         \"from_state\": \"$from_state\",
         \"to_state\": \"$to_state\",
@@ -272,7 +278,7 @@ reset_circuit_breaker() {
     cat > "$CB_STATE_FILE" << EOF
 {
     "state": "$CB_STATE_CLOSED",
-    "last_change": "$(date -Iseconds)",
+    "last_change": "$(get_iso_date)",
     "consecutive_no_progress": 0,
     "consecutive_same_error": 0,
     "last_progress_loop": 0,

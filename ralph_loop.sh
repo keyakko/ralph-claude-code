@@ -7,6 +7,7 @@ set -e  # Exit on any error
 
 # Source library components
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+source "$SCRIPT_DIR/lib/os_compat.sh"
 source "$SCRIPT_DIR/lib/response_analyzer.sh"
 source "$SCRIPT_DIR/lib/circuit_breaker.sh"
 
@@ -164,14 +165,14 @@ update_status() {
     
     cat > "$STATUS_FILE" << STATUSEOF
 {
-    "timestamp": "$(date -Iseconds)",
+    "timestamp": "$(get_iso_date)",
     "loop_count": $loop_count,
     "calls_made_this_hour": $calls_made,
     "max_calls_per_hour": $MAX_CALLS_PER_HOUR,
     "last_action": "$last_action",
     "status": "$status",
     "exit_reason": "$exit_reason",
-    "next_reset": "$(date -d '+1 hour' -Iseconds | cut -d'T' -f2 | cut -d'+' -f1)"
+    "next_reset": "$(get_next_hour_time)"
 }
 STATUSEOF
 }
@@ -315,7 +316,8 @@ execute_claude_code() {
     log_status "INFO" "⏳ Starting Claude Code execution... (timeout: ${CLAUDE_TIMEOUT_MINUTES}m)"
     
     # Execute Claude Code with the prompt, streaming output
-    if timeout ${timeout_seconds}s $CLAUDE_CODE_CMD < "$PROMPT_FILE" > "$output_file" 2>&1 & 
+    # Use run_with_timeout for cross-platform compatibility (macOS/Linux)
+    if run_with_timeout ${timeout_seconds} $CLAUDE_CODE_CMD < "$PROMPT_FILE" > "$output_file" 2>&1 &
     then
         local claude_pid=$!
         local progress_counter=0

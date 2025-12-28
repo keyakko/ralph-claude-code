@@ -33,21 +33,22 @@ log() {
 # Check dependencies
 check_dependencies() {
     log "INFO" "Checking dependencies..."
-    
+
     local missing_deps=()
-    
+    local os_type="$(uname -s)"
+
     if ! command -v node &> /dev/null && ! command -v npx &> /dev/null; then
         missing_deps+=("Node.js/npm")
     fi
-    
+
     if ! command -v jq &> /dev/null; then
         missing_deps+=("jq")
     fi
-    
+
     if ! command -v git &> /dev/null; then
         missing_deps+=("git")
     fi
-    
+
     if [ ${#missing_deps[@]} -ne 0 ]; then
         log "ERROR" "Missing required dependencies: ${missing_deps[*]}"
         echo "Please install the missing dependencies:"
@@ -56,35 +57,48 @@ check_dependencies() {
         echo "  CentOS/RHEL: sudo yum install nodejs npm jq git"
         exit 1
     fi
-    
+
     # Claude Code CLI will be downloaded automatically when first used
     log "INFO" "Claude Code CLI (@anthropic-ai/claude-code) will be downloaded when first used."
-    
+
     # Check tmux (optional)
     if ! command -v tmux &> /dev/null; then
         log "WARN" "tmux not found. Install for integrated monitoring: apt-get install tmux / brew install tmux"
     fi
-    
+
+    # macOS-specific: Check for coreutils (optional but recommended for better timeout support)
+    if [[ "$os_type" == "Darwin" ]]; then
+        if ! command -v gtimeout &> /dev/null; then
+            log "INFO" "Optional: Install coreutils for better timeout support: brew install coreutils"
+            log "INFO" "Ralph will use a Perl-based fallback for timeout functionality."
+        fi
+    fi
+
     log "SUCCESS" "Dependencies check completed"
 }
 
 # Create installation directory
 create_install_dirs() {
     log "INFO" "Creating installation directories..."
-    
+
     mkdir -p "$INSTALL_DIR"
     mkdir -p "$RALPH_HOME"
     mkdir -p "$RALPH_HOME/templates"
-    
+    mkdir -p "$RALPH_HOME/lib"
+
     log "SUCCESS" "Directories created: $INSTALL_DIR, $RALPH_HOME"
 }
 
 # Install Ralph scripts
 install_scripts() {
     log "INFO" "Installing Ralph scripts..."
-    
+
     # Copy templates to Ralph home
     cp -r "$SCRIPT_DIR/templates/"* "$RALPH_HOME/templates/"
+
+    # Copy library files to Ralph home
+    cp -r "$SCRIPT_DIR/lib/"* "$RALPH_HOME/lib/"
+    chmod +x "$RALPH_HOME/lib/"*.sh
     
     # Create the main ralph command
     cat > "$INSTALL_DIR/ralph" << 'EOF'
@@ -148,16 +162,15 @@ EOF
 # Install global ralph_loop.sh
 install_ralph_loop() {
     log "INFO" "Installing global ralph_loop.sh..."
-    
+
     # Create modified ralph_loop.sh for global operation
+    # Update SCRIPT_DIR to point to RALPH_HOME for library sourcing
     sed \
-        -e "s|RALPH_HOME=\"\$HOME/.ralph\"|RALPH_HOME=\"\$HOME/.ralph\"|g" \
-        -e "s|\$script_dir/ralph_monitor.sh|\$RALPH_HOME/ralph_monitor.sh|g" \
-        -e "s|\$script_dir/ralph_loop.sh|\$RALPH_HOME/ralph_loop.sh|g" \
+        -e "s|SCRIPT_DIR=\"\$(dirname \"\${BASH_SOURCE\[0\]}\")\"| SCRIPT_DIR=\"\$HOME/.ralph\"|g" \
         "$SCRIPT_DIR/ralph_loop.sh" > "$RALPH_HOME/ralph_loop.sh"
-    
+
     chmod +x "$RALPH_HOME/ralph_loop.sh"
-    
+
     log "SUCCESS" "Global ralph_loop.sh installed"
 }
 
